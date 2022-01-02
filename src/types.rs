@@ -1,6 +1,7 @@
 use speedy2d::dimen::Vector2;
 
 pub type Vector = Vector2<f32>;
+pub type UVector = Vector2<u32>;
 pub type Point = Vector;
 pub type Triangle = [Vector; 3];
 pub type Implicit = fn(Vector) -> f32;

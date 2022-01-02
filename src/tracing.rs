@@ -1,7 +1,6 @@
 use super::calc::{abs_inverse_gradient, dot};
-use super::config::{BLACK, MAX_TRACE_PIXELS};
-use super::types::Pixel;
-use super::types::{Implicit, Point, Vector};
+use super::config::{BLACK, MAX_TRACE_PIXELS, MAX_TRACE_SEARCH};
+use super::types::{Implicit, Pixel, Point, Vector};
 use speedy2d::Graphics2D;
 use std::collections::HashSet;
 
@@ -41,10 +40,10 @@ fn pixel_intersects_curve(pixel: Point, curve: Implicit) -> bool {
 fn find_pixel_on_curve(curve: Implicit, mut p: Point) -> Point {
     let mut search_distance = 20f32;
     let mut current_direction = abs_inverse_gradient(curve, p).unwrap();
-    let mut previous_direction = current_direction;
+    let mut previous_direction;
 
     // FIXME: what if there are local minimas and we never cross the zero?
-    for _ in 0..32 {
+    for _ in 0..MAX_TRACE_SEARCH {
         p = p + current_direction * search_distance;
 
         // We found a pixel on the curve! Early exit.

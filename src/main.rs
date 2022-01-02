@@ -5,12 +5,12 @@ mod plot;
 mod tracing;
 mod types;
 
-use functions::circle;
+use functions::curve;
 use plot::Plot;
 use speedy2d::Window;
 
 fn main() {
     let window = Window::new_centered("Pluft", (640, 480)).unwrap();
 
-    window.run_loop(Plot::new(circle));
+    window.run_loop(Plot::new(curve));
 }

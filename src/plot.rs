@@ -1,77 +1,65 @@
 use super::calc::intersects_or_converges;
 use super::config::*;
 use super::tracing::trace;
-use super::types::{Implicit, Point, Triangle};
+use super::types::{Implicit, Triangle, UVector, Vector};
 use crate::types::Pixel;
-use speedy2d::dimen::Vector2;
 use speedy2d::window::MouseButton;
 use speedy2d::window::{WindowHandler, WindowHelper};
 use speedy2d::Graphics2D;
 use std::collections::HashSet;
 
 pub struct Plot {
-    size_pixels: Vector2<u32>,
+    size_pixels: UVector,
 
-    camera_position: Vector2<f32>,
-    mouse_position: Vector2<f32>,
+    camera_position: Vector,
+    mouse_position: Vector,
 
-    initial_camera_position: Vector2<f32>,
-    click_position: Vector2<f32>,
+    initial_camera_position: Vector,
+    click_position: Vector,
 
     mouse_down: bool,
 
-    function: Implicit,
+    curve: Implicit,
 }
 
 impl Plot {
-    pub fn new(f: Implicit) -> Plot {
+    pub fn new(curve: Implicit) -> Plot {
         Plot {
-            size_pixels: Vector2::new(640, 480),
-            camera_position: Vector2::new(0.0, 0.0),
-            initial_camera_position: Vector2::new(0.0, 0.0),
-            mouse_position: Vector2::new(0.0, 0.0),
-            click_position: Vector2::new(0.0, 0.0),
+            size_pixels: UVector::new(640, 480),
+            camera_position: Vector::new(0.0, 0.0),
+            initial_camera_position: Vector::new(0.0, 0.0),
+            mouse_position: Vector::new(0.0, 0.0),
+            click_position: Vector::new(0.0, 0.0),
             mouse_down: false,
-            function: f,
+            curve: curve,
         }
     }
 
-    fn plot(&mut self, graphics: &mut Graphics2D, f: Implicit, background: bool) {
-        let mut filled_points = HashSet::<Pixel>::new();
-
-        // trace(
-        //     f,
-        //     Point::ZERO,
-        //     self.camera_position,
-        //     graphics,
-        //     &mut filled_points,
-        //     false,
-        // );
+    fn plot(&mut self, graphics: &mut Graphics2D, background: bool) {
+        let mut filled_pixels = HashSet::<Pixel>::new();
 
         self.tesselate_triangle(
             graphics,
             self.camera([
-                Vector2::new(self.size_pixels.x as f32, 0.0),
-                Vector2::new(self.size_pixels.x as f32, self.size_pixels.y as f32),
-                Vector2::new(0.0, 0.0),
+                Vector::new(self.size_pixels.x as f32, 0.0),
+                Vector::new(self.size_pixels.x as f32, self.size_pixels.y as f32),
+                Vector::new(0.0, 0.0),
             ]),
             0,
-            f,
             background,
-            &mut filled_points,
+            &mut filled_pixels,
         );
 
         self.tesselate_triangle(
             graphics,
             self.camera([
-                Vector2::new(0.0, self.size_pixels.y as f32),
-                Vector2::new(self.size_pixels.x as f32, self.size_pixels.y as f32),
-                Vector2::new(0.0, 0.0),
+                Vector::new(0.0, self.size_pixels.y as f32),
+                Vector::new(self.size_pixels.x as f32, self.size_pixels.y as f32),
+                Vector::new(0.0, 0.0),
             ]),
             0,
-            f,
             background,
-            &mut filled_points,
+            &mut filled_pixels,
         );
     }
 
@@ -80,53 +68,66 @@ impl Plot {
         graphics: &mut Graphics2D,
         vertices: Triangle,
         depth: u32,
-        f: Implicit,
         background: bool,
-        points: &mut HashSet<Pixel>,
+        pixels: &mut HashSet<Pixel>,
     ) {
+        // Draw background
         if background && depth <= MAX_DISPLAY_DEPTH {
-            graphics.draw_line(
-                vertices[0] - self.camera_position,
-                vertices[1] - self.camera_position,
-                1.0,
-                BLUE,
-            );
-            graphics.draw_line(
-                vertices[1] - self.camera_position,
-                vertices[2] - self.camera_position,
-                1.0,
-                BLUE,
-            );
-            graphics.draw_line(
-                vertices[2] - self.camera_position,
-                vertices[0] - self.camera_position,
-                1.0,
-                BLUE,
-            );
+            self.draw_triangle(graphics, vertices);
         }
 
+        // Draw curve
         if depth >= MAX_DEPTH {
             if !background {
-                let center = (vertices[0] + vertices[1] + vertices[2]) / 3.0;
+                let triangle_center = (vertices[0] + vertices[1] + vertices[2]) / 3.0;
 
                 for dir in [true, false] {
-                    trace(f, center, self.camera_position, graphics, points, dir);
+                    trace(
+                        self.curve,
+                        triangle_center,
+                        self.camera_position,
+                        graphics,
+                        pixels,
+                        dir,
+                    );
                 }
             }
 
             return;
         }
 
-        let tri_a = [(vertices[1] + vertices[2]) / 2.0, vertices[0], vertices[1]];
-        let tri_b = [(vertices[1] + vertices[2]) / 2.0, vertices[0], vertices[2]];
+        // Split the current triangle in two
+        let children = [
+            [(vertices[1] + vertices[2]) / 2.0, vertices[0], vertices[1]],
+            [(vertices[1] + vertices[2]) / 2.0, vertices[0], vertices[2]],
+        ];
 
-        if intersects_or_converges(f, tri_a) || depth <= SEARCH_DEPTH {
-            self.tesselate_triangle(graphics, tri_a, depth + 1, f, background, points);
+        for child in children {
+            if intersects_or_converges(self.curve, child) || depth <= SEARCH_DEPTH {
+                self.tesselate_triangle(graphics, child, depth + 1, background, pixels);
+            }
         }
+    }
 
-        if intersects_or_converges(f, tri_b) || depth <= SEARCH_DEPTH {
-            self.tesselate_triangle(graphics, tri_b, depth + 1, f, background, points);
-        }
+    fn draw_triangle(&self, graphics: &mut Graphics2D, tri: Triangle) {
+        graphics.draw_line(
+            tri[0] - self.camera_position,
+            tri[1] - self.camera_position,
+            1.0,
+            BLUE,
+        );
+        graphics.draw_line(
+            tri[1] - self.camera_position,
+            tri[2] - self.camera_position,
+            1.0,
+            BLUE,
+        );
+        graphics.draw_line(
+            tri[2] - self.camera_position,
+            tri[0] - self.camera_position,
+            1.0,
+            BLUE,
+        );
     }
 
     fn camera(&self, tri: Triangle) -> Triangle {
@@ -135,7 +136,7 @@ impl Plot {
 }
 
 impl WindowHandler for Plot {
-    fn on_mouse_move(&mut self, helper: &mut WindowHelper, position: Vector2<f32>) {
+    fn on_mouse_move(&mut self, helper: &mut WindowHelper, position: Vector) {
         if self.mouse_down {
             self.camera_position =
                 self.initial_camera_position + (self.click_position - self.mouse_position);
@@ -156,15 +157,21 @@ impl WindowHandler for Plot {
         self.mouse_down = false;
     }
 
-    fn on_resize(&mut self, helper: &mut WindowHelper, size_pixels: Vector2<u32>) {
+    fn on_resize(&mut self, helper: &mut WindowHelper, size_pixels: UVector) {
         self.size_pixels = size_pixels;
+
+        self.camera_position = Vector::new(
+            -((self.size_pixels.x / 2) as f32),
+            -((self.size_pixels.y / 2) as f32),
+        );
+
         helper.request_redraw();
     }
 
     fn on_draw(&mut self, _helper: &mut WindowHelper, graphics: &mut Graphics2D) {
         graphics.clear_screen(WHITE);
 
-        self.plot(graphics, self.function, true);
-        self.plot(graphics, self.function, false);
+        self.plot(graphics, true);
+        self.plot(graphics, false);
     }
 }
