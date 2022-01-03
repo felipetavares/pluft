@@ -42,7 +42,7 @@ fn intersects_2_edges(f: Implicit, tri: Triangle) -> bool {
     (f(tri[0]).signum() + f(tri[1]).signum() + f(tri[2]).signum()).abs() as i32 != 3
 }
 
-fn converges(curve: Implicit, tri: Triangle) -> bool {
+pub fn converges(curve: Implicit, tri: Triangle) -> bool {
     let center = (tri[0] + tri[1] + tri[2]) / 3.0;
 
     for point in tri {

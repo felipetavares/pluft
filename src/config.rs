@@ -10,5 +10,4 @@ pub const MAX_DEPTH: u32 = 8;
 pub const MAX_DISPLAY_DEPTH: u32 = 8;
 pub const SEARCH_DEPTH: u32 = 6;
 
-pub const MAX_TRACE_PIXELS: u32 = 16384;
-pub const MAX_TRACE_SEARCH: u32 = 32;
+pub const MAX_TRACE_SEARCH: u32 = 128;

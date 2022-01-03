@@ -61,6 +61,8 @@ impl Plot {
             background,
             &mut filled_pixels,
         );
+
+        println!("Filled {} pixels", filled_pixels.len());
     }
 
     fn tesselate_triangle(
@@ -81,16 +83,13 @@ impl Plot {
             if !background {
                 let triangle_center = (vertices[0] + vertices[1] + vertices[2]) / 3.0;
 
-                for dir in [true, false] {
-                    trace(
-                        self.curve,
-                        triangle_center,
-                        self.camera_position,
-                        graphics,
-                        pixels,
-                        dir,
-                    );
-                }
+                trace(
+                    self.curve,
+                    triangle_center,
+                    self.camera_position,
+                    graphics,
+                    pixels,
+                );
             }
 
             return;

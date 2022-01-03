@@ -1,8 +1,8 @@
 use super::calc::{abs_inverse_gradient, dot};
-use super::config::{BLACK, MAX_TRACE_PIXELS, MAX_TRACE_SEARCH};
+use super::config::{BLACK, MAX_TRACE_SEARCH};
 use super::types::{Implicit, Pixel, Point, Vector};
 use speedy2d::Graphics2D;
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 
 fn closest_rotation_match(a: Vector, b: Vector) -> Vector {
     let rots = [
@@ -37,7 +37,7 @@ fn pixel_intersects_curve(pixel: Point, curve: Implicit) -> bool {
     intersects
 }
 
-fn find_pixel_on_curve(curve: Implicit, mut p: Point) -> Point {
+fn find_pixel_on_curve(curve: Implicit, mut p: Point) -> Option<Point> {
     let mut search_distance = 20f32;
     let mut current_direction = abs_inverse_gradient(curve, p).unwrap();
     let mut previous_direction;
@@ -48,7 +48,7 @@ fn find_pixel_on_curve(curve: Implicit, mut p: Point) -> Point {
 
         // We found a pixel on the curve! Early exit.
         if pixel_intersects_curve(p, curve) {
-            return Point::new(p.x.floor(), p.y.floor());
+            return Some(Point::new(p.x.floor(), p.y.floor()));
         }
 
         previous_direction = current_direction;
@@ -60,13 +60,13 @@ fn find_pixel_on_curve(curve: Implicit, mut p: Point) -> Point {
         }
     }
 
-    return Point::new(p.x.floor(), p.y.floor());
+    None
 }
 
-fn find_pixel_in_direction(f: Implicit, point: Point, dir: Vector) -> Option<Point> {
+fn find_neighbor_pixels(curve: Implicit, point: Point) -> Vec<Point> {
     let pixel = Point::new(point.x.floor(), point.y.floor());
 
-    let all_directions = [
+    let all_directions = vec![
         Vector::new(1.0, 0.0),
         Vector::new(-1.0, 0.0),
         Vector::new(0.0, 1.0),
@@ -77,18 +77,11 @@ fn find_pixel_in_direction(f: Implicit, point: Point, dir: Vector) -> Option<Poi
         Vector::new(1.0, -1.0),
     ];
 
-    let mut directions = all_directions
-        .iter()
-        .filter(|candidate| pixel_intersects_curve(pixel + **candidate, f))
-        .collect::<Vec<&Vector>>();
-
-    // FIXME: Weird hack for sorting floating point...
-    directions.sort_by_key(|candidate| (-dot(dir, **candidate) * 1000.0) as i32);
-
-    match directions.len() {
-        0 => None,
-        _ => Some(pixel + directions[0].clone()),
-    }
+    all_directions
+        .into_iter()
+        .filter(|&candidate| pixel_intersects_curve(pixel + candidate, curve))
+        .map(|dir| pixel + dir)
+        .collect::<Vec<Point>>()
 }
 
 pub fn trace(
@@ -97,44 +90,25 @@ pub fn trace(
     cam: Vector,
     graphics: &mut Graphics2D,
     points: &mut HashSet<Pixel>,
-    initial_direction: bool,
 ) {
-    let mut pixel = find_pixel_on_curve(curve, start);
+    let mut queue = VecDeque::new();
 
-    let mut zero_direction;
-    let mut trace_direction = None;
+    match find_pixel_on_curve(curve, start) {
+        Some(pixel) => queue.push_back(pixel),
+        None => {}
+    }
 
-    for _ in 0..MAX_TRACE_PIXELS {
-        zero_direction = abs_inverse_gradient(curve, pixel);
+    while queue.len() > 0 {
+        let pixel = queue.pop_front().unwrap();
 
-        trace_direction = match trace_direction {
-            None => Some(match initial_direction {
-                false => zero_direction.unwrap().rotate_90_degrees_clockwise(),
-                true => zero_direction.unwrap().rotate_90_degrees_anticlockwise(),
-            }),
-            Some(prev_trace_direction) => Some(closest_rotation_match(
-                prev_trace_direction,
-                zero_direction.unwrap(),
-            )),
-        };
-
-        match find_pixel_in_direction(curve, pixel, trace_direction.unwrap()) {
-            Some(next_pixel) => {
-                pixel = next_pixel;
-            }
-            None => {
-                break;
-            }
-        }
-
-        let pixel_hash = Pixel::new(pixel);
+        let hashable_pixel = Pixel::new(pixel);
 
         // FIXME: stop tracing if pixel is outside the screen
-        if points.contains(&pixel_hash) {
-            break;
-        } else {
+        if !points.contains(&hashable_pixel) {
             graphics.draw_line(pixel - cam, pixel - cam + Vector::new(1.0, 1.0), 1.0, BLACK);
-            points.insert(pixel_hash);
+
+            points.insert(hashable_pixel);
+            queue.append(&mut VecDeque::from(find_neighbor_pixels(curve, pixel)));
         }
     }
 }
