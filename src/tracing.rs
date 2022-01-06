@@ -4,21 +4,6 @@ use super::types::{Implicit, Pixel, Point, Vector};
 use speedy2d::Graphics2D;
 use std::collections::{HashSet, VecDeque};
 
-fn closest_rotation_match(a: Vector, b: Vector) -> Vector {
-    let rots = [
-        b.rotate_90_degrees_clockwise(),
-        b.rotate_90_degrees_anticlockwise(),
-    ];
-
-    let dots = rots.iter().map(|&rot| dot(rot, a)).collect::<Vec<f32>>();
-
-    if dots[0] > dots[1] {
-        rots[0]
-    } else {
-        rots[1]
-    }
-}
-
 fn pixel_intersects_curve(pixel: Point, curve: Implicit) -> bool {
     let quad = [
         pixel,
