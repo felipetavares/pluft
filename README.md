@@ -9,10 +9,9 @@ Pluft plots implicit curves. Example:
 
 where
 
-<p align="center">
-    <img src="https://render.githubusercontent.com/render/math?math=\large x' = x - 1#gh-light-mode-only">
-    <img src="https://render.githubusercontent.com/render/math?math=\color{lightgray}\large x' = x - 1#gh-dark-mode-only">
-</p>
+```math
+\large x' = x - 1
+```
 
 <p align="center">
     <img src="https://raw.githubusercontent.com/felipetavares/pluft/main/img/tomato.png">
